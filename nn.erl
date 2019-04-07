@@ -73,7 +73,7 @@ neuronMain(Ins, Weights, Bias, PrevNeurons, Neurons) ->
 calculateOut([], [], _Bias) ->
 	0;
 calculateOut([A|As], [W|Ws], Bias) ->
-	calculateOut(As, Ws, Bias, Neurons) + A*W + Bias. %% Apply LSM
+	1/(1+math:exp((-calculateOut(As, Ws, Bias, Neurons) - A*W - Bias)).
 
 sendOut(_Val, []) ->
 	ok;
