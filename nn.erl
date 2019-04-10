@@ -6,7 +6,8 @@ setup(Layers, NeuronCount, N) ->
 	Ins = {randNos(N), randNos(N)},
 	Expected = calculateExpected(),
 	%% Spawn neurons
-	oof.
+	layerSetup(first, Ins, Layers, NeuronCount, Expected),
+	ok.
 
 randNos(N) -> [rand:uniform(100) || _ <- lists:seq(1, N)].
 randDub(N) -> [rand:uniform() || _ <- lists:seq(1, N)].
@@ -28,23 +29,30 @@ firstNeuronSetup(Ins) ->
 	end.
 firstNeuron(Ins, Neurons) ->
 	receive {sendS, _S} ->
-		sendNextIns
-	end.
+		sendNextIn(In, Neurons)
+	end,
+	firstNeuron(Ins, Neurons).
 
-layerSetup(first, {X, Y}, Layers, NeuronCount) ->
+sendNextIn(In, []) ->
+	ok;
+sendNextIn(In, [N|Ns]) ->
+	N!{input, In}
+	sendNextIns(In, Ns).
+
+layerSetup(first, {Xs, Ys}, Layers, NeuronCount, Expected) ->
 	State1 = spawn(?MODULE, firstNeuronSetup, [X]),
 	State2 = spawn(?MODULE, firstNeuronSetup, [Y]),
 	Pids = [State1] ++ [State2],
-	layerSetup(Layers, NeuronCount, Pids).
+	layerSetup(Layers, NeuronCount, Pids, Expected).
 layerSetup(0, _NeuronCount, PrevNeurons) ->
-	State1 = spawn(?MODULE, finalNeuron, [PrevNeurons]),
-	State2 = spawn(?MODULE, finalNeuron, [PrevNeurons]),
+	State1 = spawn(?MODULE, finalNeuron, [PrevNeurons, Expected]),
+	State2 = spawn(?MODULE, finalNeuron, [PrevNeurons, Expected]),
 	Pids = [State1] ++ [State2],
 	sendLayer(PrevNeurons, Pids);
-layerSetup(Layers, NeuronCount, PrevNeurons) ->
+layerSetup(Layers, NeuronCount, PrevNeurons, Expected) ->
 	Pids = spawnNeurons(NeuronCount, PrevNeurons),
 	sendLayer(PrevNeurons, Pids),
-	layerSetup(Layers - 1, NeuronCount, Pids).
+	layerSetup(Layers - 1, NeuronCount, Pids, Expected).
 
 spawnNeurons(0, _PrevNeurons) -> [];
 spawnNeurons(NeuronCount, PrevNeurons) -> 
@@ -96,13 +104,23 @@ calculateS(S, [A|As], [W|Ws], [N|Ns]) ->
 	N!{sendS, S*W(1-A)*A},
 	calculateS(S, As, Ws, Ns).
 
-neuronServer() ->
-	ok.
-
-finalNeuron() ->
+finalNeuron(Ins, Weights, Bias, PrevNeurons, [Expected|Others]) ->
 	receive
-		Out ->
-			% Calculate error
-			% Send S to previous neuron(s)
-			% Re-call server
+		{input, X} ->
+			case length(Ins) =:= length(PrevNeurons) - 1 of
+				true -> 
+					Value = calculateOut([X|Ins], Weights, Bias),
+					% Calculate error
+					Error = math:pow((Expected - Value), 2),
+					% Calculate S
+					S =  % Derivative of LSM etc.
+					% Send value of S to previous neurons
+					% Calculate new weights + bias
+					NewW = newW(S, 0.1, Weights),
+					NewB = Bias - 0.1 * S,
+					finalNeuron([], NewW, NewB, PrevNeurons, Others);
+				_ ->
+					finalNeuron([X|Ins], Weights, Bias, PrevNeurons, [Expected|Others])
+			end;
+		}
 	end.
