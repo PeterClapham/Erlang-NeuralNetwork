@@ -121,6 +121,5 @@ finalNeuron(Ins, Weights, Bias, PrevNeurons, [Expected|Others]) ->
 					finalNeuron([], NewW, NewB, PrevNeurons, Others);
 				_ ->
 					finalNeuron([X|Ins], Weights, Bias, PrevNeurons, [Expected|Others])
-			end;
-		}
+			end
 	end.
